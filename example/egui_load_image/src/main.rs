@@ -1,4 +1,4 @@
-use egui_extras_lib::{Image, asynchron::{Futurize,Progress}};
+use egui_extras_lib::{Image, asynchron::{Futurize, Progress}};
 use eframe::{egui::{self, FontDefinitions, FontFamily, Sense, TextStyle, TextureId}, epi};
 
 struct MyApp {

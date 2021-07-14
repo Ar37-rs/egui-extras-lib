@@ -8,4 +8,4 @@ publish = false
 
 [dependencies]
 eframe = "*"
-egui_extras_lib = { path = "../../../egui_extras_lib" }
+egui_extras_lib = "0.13"

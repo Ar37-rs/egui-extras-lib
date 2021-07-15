@@ -130,8 +130,7 @@ impl epi::App for MyApp {
             });
 
             ui.horizontal(|ui| {
-                let btn = ui.button("prev image");
-                if btn.clicked() {
+                if ui.button("prev image").clicked() {
                     // prevent changing if the other task_network_image_loader is still running
                     if !image_url.contains("Loading...") {
                         if *seed > 1 {
@@ -150,9 +149,8 @@ impl epi::App for MyApp {
                         }
                     }
                 }
-
-                let btn = ui.button("next image");
-                if btn.clicked() {
+                
+                if ui.button("next image").clicked() {
                     // prevent changing if the other task_network_image_loader is still running
                     if !image_url.contains("Loading...") {
                         *seed += 1;

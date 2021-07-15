@@ -71,6 +71,7 @@ fn save_image(image_content: Vec<u8>, name: String) -> String {
         return format!("image saved to:\n{}", pth_buf.display());
     }
 }
+
 struct MyApp {
     seed: u32,
     counter: u32,

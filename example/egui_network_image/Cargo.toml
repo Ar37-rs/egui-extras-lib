@@ -1,0 +1,12 @@
+[package]
+name = "egui_network_image"
+version = "0.1.0"
+authors = ["Ar37-rs <adyaro37@gmail.com>"]
+edition = "2018"
+publish = false
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ureq = "2"
+eframe = "0.13"
+egui_extras_lib = "0.13"

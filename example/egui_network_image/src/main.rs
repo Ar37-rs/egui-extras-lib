@@ -164,7 +164,7 @@ impl epi::App for MyApp {
             });
 
             if let Some(task_network_image_loader) = network_image_loader {
-                if task_network_image_loader.is_on_progress() {
+                if task_network_image_loader.is_in_progress() {
                     match task_network_image_loader.try_get() {
                         Progress::Current => {
                             *counter += 1;
@@ -175,7 +175,6 @@ impl epi::App for MyApp {
                         }
                         Progress::Completed((bytes, image_info)) => {
                             // restore some states to default
-                            *image_clicked = false;
                             *counter = 0;
                             *image_url = format!(
                                 "URL: {}\nContent-type: {}",
@@ -188,7 +187,6 @@ impl epi::App for MyApp {
                             *network_image_loader = None
                         }
                         Progress::Error(err_name) => {
-                            *image_clicked = false;
                             *counter = 0;
                             *image_url = err_name
                         }

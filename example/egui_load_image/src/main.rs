@@ -77,7 +77,7 @@ impl epi::App for MyApp {
                 }
 
                 if let Some(task_image_loader) = image_loader {
-                    if task_image_loader.is_on_progress() {
+                    if task_image_loader.is_in_progress() {
                         match task_image_loader.try_get() {
                             Progress::Current => {
                                 // if task id == 0 it means loading image (png, jpg, gif .etc) else if task_id == 1 loading svg image

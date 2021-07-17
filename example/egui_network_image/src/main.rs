@@ -228,12 +228,11 @@ impl epi::App for MyApp {
                     .on_hover_text("Image is clickable!, click to save the image.");
 
                 if clickable_image.clicked() {
-                    // prevent changing if the other task_network_image_loader is still running and if image save info is still showed
+                    // prevent changing if the other task_network_image_loader is still running and if image save info is still showing
                     if !*image_clicked && !label_info.contains("Loading...") {
                         *image_saved_info =
                             save_image(image_content.clone().to_vec(), image_url.clone());
                         *image_clicked = true
-                        // if image_canceled, restore image_canceled state to default.
                     }
                 }
 

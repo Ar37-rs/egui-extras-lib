@@ -1,12 +1,15 @@
+use eframe::{
+    egui::{self, FontDefinitions, FontFamily, Label, Sense, TextStyle, TextureId},
+    epi,
+};
+use egui_extras_lib::{
+    asynchron::{Futurize, Progress},
+    Image,
+};
 use std::{
     env::current_dir,
     fs::OpenOptions,
     io::{Read, Write},
-};
-use egui_extras_lib::{Image, asynchron::{Futurize, Progress}};
-use eframe::{
-    egui::{self, FontDefinitions, Label, FontFamily, Sense, TextStyle, TextureId},
-    epi,
 };
 
 #[derive(Clone, Debug)]
@@ -30,6 +33,7 @@ fn network_image(url: String) -> Futurize<(Vec<u8>, NetworkImageInfo), String> {
             if _canceled.load(std::sync::atomic::Ordering::Relaxed) {
                 return Progress::Canceled;
             }
+
             if res.status() == 200 {
                 let img_info = NetworkImageInfo {
                     url: res.get_url().to_string(),
@@ -37,7 +41,7 @@ fn network_image(url: String) -> Futurize<(Vec<u8>, NetworkImageInfo), String> {
                 };
                 let mut buf = Vec::new();
                 if let Err(_) = res.into_reader().read_to_end(&mut buf) {
-                    return Progress::Error("unable read image content".to_string());
+                    return Progress::Error("Unable read image content".to_string());
                 };
 
                 // and check here also.
@@ -55,19 +59,20 @@ fn network_image(url: String) -> Futurize<(Vec<u8>, NetworkImageInfo), String> {
     task
 }
 
-fn save_image(image_content: Vec<u8>, name: String) -> String {
+fn save_image(image_content: Vec<u8>, image_url: String) -> String {
     let mut pth_buf = current_dir().unwrap();
-    pth_buf.push(name);
+    let name: Vec<&str> = image_url.split("hmac=").collect();
+    pth_buf.push(format!("{}.jpg", name[1][1..7].to_string()));
     if pth_buf.is_file() {
-        return format!("{}\nimage already exist!", pth_buf.display());
+        return format!("{}\nimage name already exist!", pth_buf.display());
     } else {
-        let mut img = OpenOptions::new()
+        let mut _image = OpenOptions::new()
             .create(true)
             .write(true)
             .read(true)
             .open(&pth_buf)
             .unwrap();
-        img.write(&image_content).unwrap();
+        _image.write(&image_content).unwrap();
         return format!("image saved to:\n{}", pth_buf.display());
     }
 }
@@ -81,6 +86,7 @@ struct MyApp {
     image_clicked: bool,
     image_saved_info: String,
     image_counter: u32,
+    label_info: String,
     image_url: String,
 }
 
@@ -95,9 +101,10 @@ impl Default for MyApp {
             image_clicked: false,
             image_saved_info: "".to_string(),
             image_counter: 0,
-            image_url:
+            label_info:
                 "Image uninitialized, click 'next image' to init or load other network image."
                     .to_string(),
+            image_url: String::new(),
         }
     }
 }
@@ -117,6 +124,7 @@ impl epi::App for MyApp {
             image_clicked,
             image_saved_info,
             image_counter,
+            label_info,
             image_url,
         } = self;
 
@@ -125,39 +133,37 @@ impl epi::App for MyApp {
 
             ui.separator();
             ui.vertical(|ui| {
-                let label = Label::new(&*image_url.clone());
+                let label = Label::new(&*label_info.clone());
                 ui.add(label)
             });
 
             ui.horizontal(|ui| {
                 if ui.button("prev image").clicked() {
                     // prevent changing if the other task_network_image_loader is still running
-                    if !image_url.contains("Loading...") {
+                    if !label_info.contains("Loading...") {
                         if *seed > 1 {
                             *seed -= 1;
                             let width = 640;
                             let height = 480;
-                            let url = format!(
-                                "https://picsum.photos/seed/{}/{}/{}",
-                                *seed, width, height
-                            );
+                            let url =
+                                format!("https://picsum.photos/seed/{}/{}/{}", seed, width, height);
                             *network_image_loader = Some(network_image(url))
                         } else {
-                            *image_url =
+                            *label_info =
                                 "image index is almost out of bound, try click 'next image'"
                                     .to_string()
                         }
                     }
                 }
-                
+
                 if ui.button("next image").clicked() {
                     // prevent changing if the other task_network_image_loader is still running
-                    if !image_url.contains("Loading...") {
+                    if !label_info.contains("Loading...") {
                         *seed += 1;
                         let width = 640;
                         let height = 480;
                         let url =
-                            format!("https://picsum.photos/seed/{}/{}/{}", *seed, width, height);
+                            format!("https://picsum.photos/seed/{}/{}/{}", seed, width, height);
                         *network_image_loader = Some(network_image(url))
                     }
                 }
@@ -168,29 +174,42 @@ impl epi::App for MyApp {
                     match task_network_image_loader.try_get() {
                         Progress::Current => {
                             *counter += 1;
-                            *image_url = format!("Loading... {}\n", counter);
+                            *label_info = format!("Loading... {}\n", counter);
                             if ui.button("cancel?").clicked() {
                                 task_network_image_loader.cancel()
                             }
                         }
                         Progress::Completed((bytes, image_info)) => {
-                            // restore some states to default
+                            // restore counter to default
                             *counter = 0;
-                            *image_url = format!(
-                                "URL: {}\nContent-type: {}",
-                                image_info.url, image_info.content_type
-                            );
-                            let _image = Image::new(&bytes);
-                            frame.tex_allocator().free(raw_image.0);
-                            *image_content = bytes;
-                            *raw_image = (_image.texture_id(frame), _image.size);
+
+                            if let Some(_image) = Image::new(&bytes) {
+                                *label_info = format!(
+                                    "URL: {}\nContent-type: {}",
+                                    image_info.url, image_info.content_type
+                                );
+                                *image_url = image_info.url;
+                                frame.tex_allocator().free(raw_image.0);
+                                *image_content = bytes;
+                                *raw_image = (_image.texture_id(frame), _image.size)
+                            } else {
+                                *label_info = "Unable to read image content.".to_string()
+                            }
+
                             *network_image_loader = None
                         }
-                        Progress::Error(err_name) => {
+                        Progress::Canceled => {
+                            // restore counter to default
                             *counter = 0;
-                            *image_url = err_name
+
+                            *label_info = "Loading image canceled!".to_string()
                         }
-                        Progress::Canceled => *image_url = "Loading image canceled!".to_string(),
+                        Progress::Error(err_name) => {
+                            // and restore counter to default here also.
+                            *counter = 0;
+
+                            *label_info = err_name
+                        }
                     }
                 }
             }
@@ -202,21 +221,23 @@ impl epi::App for MyApp {
             let size: (f32, f32) = (raw_image.1 .0 / 1.5, raw_image.1 .1 / 1.5);
 
             ui.horizontal(|ui| {
-                let img = ui
+                let clickable_image = ui
                     .image(raw_image.0, size)
                     .interact(Sense::click())
                     .on_hover_cursor(egui::CursorIcon::PointingHand)
                     .on_hover_text("Image is clickable!, click to save the image.");
 
-                if img.clicked() {
-                    if !*image_clicked && !image_url.contains("Loading...") {
+                if clickable_image.clicked() {
+                    // prevent changing if the other task_network_image_loader is still running and if image save info is still showed
+                    if !*image_clicked && !label_info.contains("Loading...") {
                         *image_saved_info =
-                            save_image(image_content.clone().to_vec(), format!("{}.jpg", *seed));
+                            save_image(image_content.clone().to_vec(), image_url.clone());
                         *image_clicked = true
+                        // if image_canceled, restore image_canceled state to default.
                     }
                 }
 
-                if img.hovered() {
+                if clickable_image.hovered() {
                     if *image_clicked {
                         ui.label(image_saved_info.clone());
                         *image_counter += 1;
@@ -225,7 +246,6 @@ impl epi::App for MyApp {
                             *image_counter = 0;
                             *image_clicked = false
                         }
-                
                     }
                 }
             });
@@ -261,5 +281,5 @@ impl epi::App for MyApp {
 
 fn main() {
     let options = eframe::NativeOptions::default();
-    eframe::run_native(Box::new(MyApp::default()), options);
+    eframe::run_native(Box::new(MyApp::default()), options)
 }

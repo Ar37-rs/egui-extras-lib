@@ -9,3 +9,4 @@ publish = false
 [dependencies]
 eframe = "0.13"
 egui_extras_lib = "0.13"
+# egui_extras_lib = { path = "../../../egui-extras-lib" }

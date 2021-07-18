@@ -50,7 +50,7 @@ fn network_image(url: String) -> Futurize<(Vec<u8>, NetworkImageInfo), String> {
                     return Progress::Completed((buf, img_info));
                 }
             } else {
-                return Progress::Error(format!("Networl error: {}", res.status()));
+                return Progress::Error(format!("Request error, status: {}", res.status()));
             }
         },
     );

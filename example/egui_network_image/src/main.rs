@@ -38,6 +38,7 @@ fn network_image(url: String) -> Futurize<(Vec<u8>, NetworkImageInfo), String> {
                     url: res.get_url().to_string(),
                     content_type: res.content_type().to_string(),
                 };
+                
                 let mut buf = Vec::new();
                 if let Err(_) = res.into_reader().read_to_end(&mut buf) {
                     return Progress::Error("Unable read image content".to_string());
@@ -50,7 +51,7 @@ fn network_image(url: String) -> Futurize<(Vec<u8>, NetworkImageInfo), String> {
                     return Progress::Completed((buf, img_info));
                 }
             } else {
-                return Progress::Error(format!("Request error, status: {}", res.status()));
+                return Progress::Error(format!("Networl error: {}", res.status()));
             }
         },
     );
@@ -58,7 +59,7 @@ fn network_image(url: String) -> Futurize<(Vec<u8>, NetworkImageInfo), String> {
     task
 }
 
-fn save_image(image_content: Vec<u8>, image_url: String) -> String {
+fn save_image(image_content: &[u8], image_url: &str) -> String {
     let mut pth_buf = current_dir().unwrap();
     let name: Vec<&str> = image_url.split("hmac=").collect();
     pth_buf.push(format!("{}.jpg", name[1][1..7].to_string()));
@@ -71,39 +72,73 @@ fn save_image(image_content: Vec<u8>, image_url: String) -> String {
             .read(true)
             .open(&pth_buf)
             .unwrap();
-        _image.write(&image_content).unwrap();
+        _image.write(image_content).unwrap();
         return format!("image saved to:\n{}", pth_buf.display());
     }
 }
 
 struct MyApp {
-    seed: u32,
-    counter: u32,
-    image_content: Vec<u8>,
-    raw_image: (TextureId, (f32, f32)),
-    network_image_loader: Option<Futurize<(Vec<u8>, NetworkImageInfo), String>>,
-    image_clicked: bool,
-    image_saved_info: String,
-    image_counter: u32,
-    label_info: String,
-    image_url: String,
+    total_image: u32,
+    seed: Vec<u32>,
+    counter: Vec<u32>,
+    image_content: Vec<Vec<u8>>,
+    raw_image: Vec<(TextureId, (f32, f32))>,
+    network_image_loader: Vec<Option<Futurize<(Vec<u8>, NetworkImageInfo), String>>>,
+    image_clicked: Vec<bool>,
+    image_saved_info: Vec<String>,
+    image_counter: Vec<u32>,
+    label_info: Vec<String>,
+    image_url: Vec<String>,
+    cancel_image: Vec<bool>,
 }
 
 impl Default for MyApp {
     fn default() -> Self {
-        Self {
-            seed: 1,
-            counter: 0,
-            image_content: Vec::new(),
-            raw_image: (TextureId::default(), (0.0, 0.0)),
-            network_image_loader: None,
-            image_clicked: false,
-            image_saved_info: "".to_string(),
-            image_counter: 0,
-            label_info:
+        let total_image: usize = 4;
+        let mut seed = Vec::new();
+        let mut counter = Vec::new();
+        let mut image_content = Vec::new();
+        let mut raw_image = Vec::new();
+        let mut network_image_loader =
+            Vec::<Option<Futurize<(Vec<u8>, NetworkImageInfo), String>>>::new();
+        let mut image_clicked = Vec::new();
+        let mut image_saved_info = Vec::new();
+        let mut image_counter = Vec::new();
+        let mut label_info = Vec::new();
+        let mut image_url = Vec::new();
+        let mut cancel_image = Vec::new();
+
+        for mut i in 0..total_image {
+            i += 1;
+            seed.push(i as u32);
+            counter.push(0);
+            image_content.push(Vec::<u8>::new());
+            raw_image.push((TextureId::default(), (0.0, 0.0)));
+            network_image_loader.push(None);
+            image_clicked.push(false);
+            image_saved_info.push("".to_string());
+            image_counter.push(0);
+            label_info.push(
                 "Image uninitialized, click 'next image' to init or load other network image."
                     .to_string(),
-            image_url: String::new(),
+            );
+            image_url.push("".to_string());
+            cancel_image.push(false)
+        }
+
+        Self {
+            total_image: total_image as u32,
+            seed,
+            counter,
+            image_content,
+            raw_image,
+            network_image_loader,
+            image_clicked,
+            image_saved_info,
+            image_counter,
+            label_info,
+            image_url,
+            cancel_image,
         }
     }
 }
@@ -115,6 +150,7 @@ impl epi::App for MyApp {
 
     fn update(&mut self, ctx: &egui::CtxRef, frame: &mut epi::Frame<'_>) {
         let Self {
+            total_image,
             seed,
             counter,
             image_content,
@@ -125,124 +161,138 @@ impl epi::App for MyApp {
             image_counter,
             label_info,
             image_url,
+            cancel_image,
         } = self;
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Network image quick demo");
-
             ui.separator();
-            ui.vertical(|ui| {
-                let label = Label::new(&*label_info.clone());
-                ui.add(label)
-            });
-
             ui.horizontal(|ui| {
                 if ui.button("prev image").clicked() {
                     // prevent changing if the other task_network_image_loader is still running
-                    if !label_info.contains("Loading...") {
-                        if *seed > 1 {
-                            *seed -= 1;
-                            let width = 640;
-                            let height = 480;
-                            let url =
-                                format!("https://picsum.photos/seed/{}/{}/{}", seed, width, height);
-                            *network_image_loader = Some(network_image(url))
-                        } else {
-                            *label_info =
-                                "image index is almost out of bound, try click 'next image'"
-                                    .to_string()
+                    for i in 0..*total_image as usize {
+                        if !label_info[i].contains("Loading...") {
+                            if seed[i] > *total_image {
+                                seed[i] -= *total_image;
+                                let width = 640;
+                                let height = 480;
+                                let url = format!(
+                                    "https://picsum.photos/seed/{}/{}/{}",
+                                    seed[i], width, height
+                                );
+                                network_image_loader[i] = Some(network_image(url))
+                            } else {
+                                label_info[i] =
+                                    "image index is almost out of bound, try click 'next image'"
+                                        .to_string()
+                            }
                         }
                     }
                 }
 
                 if ui.button("next image").clicked() {
-                    // prevent changing if the other task_network_image_loader is still running
-                    if !label_info.contains("Loading...") {
-                        *seed += 1;
-                        let width = 640;
-                        let height = 480;
-                        let url =
-                            format!("https://picsum.photos/seed/{}/{}/{}", seed, width, height);
-                        *network_image_loader = Some(network_image(url))
+                    for i in 0..*total_image as usize {
+                        // prevent changing if the other task_network_image_loader is still running
+                        if !label_info[i].contains("Loading...") {
+                            seed[i] += *total_image;
+                            let width = 640;
+                            let height = 480;
+                            let url = format!(
+                                "https://picsum.photos/seed/{}/{}/{}",
+                                seed[i], width, height
+                            );
+                            network_image_loader[i] = Some(network_image(url))
+                        }
                     }
                 }
             });
 
-            if let Some(task_network_image_loader) = network_image_loader {
-                if task_network_image_loader.is_in_progress() {
-                    match task_network_image_loader.try_get() {
-                        Progress::Current => {
-                            *counter += 1;
-                            *label_info = format!("Loading... {}\n", counter);
-                            if ui.button("cancel?").clicked() {
-                                task_network_image_loader.cancel()
+            for i in 0..*total_image as usize {
+                if let Some(task_network_image_loader) = &network_image_loader[i] {
+                    if task_network_image_loader.is_in_progress() {
+                        match task_network_image_loader.try_get() {
+                            Progress::Current => {
+                                counter[i] += 1;
+                                label_info[i] = format!("Loading... {}\n", counter[i]);
+                                if cancel_image[i] {
+                                    task_network_image_loader.cancel()
+                                }
                             }
-                        }
-                        Progress::Completed((bytes, image_info)) => {
-                            // restore counter to default
-                            *counter = 0;
+                            Progress::Completed((bytes, image_info)) => {
+                                // restore counter to default
+                                counter[i] = 0;
+                                if let Some(_image) = Image::new(&bytes) {
+                                    label_info[i] = format!(
+                                        "URL: {}\nContent-type: {}",
+                                        image_info.url, image_info.content_type
+                                    );
+                                    image_url[i] = image_info.url;
+                                    frame.tex_allocator().free(raw_image[i].0);
+                                    image_content[i] = bytes;
+                                    raw_image[i] = (_image.texture_id(frame), _image.size)
+                                } else {
+                                    label_info[i] = "Unable to read image content.".to_string()
+                                }
 
-                            if let Some(_image) = Image::new(&bytes) {
-                                *label_info = format!(
-                                    "URL: {}\nContent-type: {}",
-                                    image_info.url, image_info.content_type
-                                );
-                                *image_url = image_info.url;
-                                frame.tex_allocator().free(raw_image.0);
-                                *image_content = bytes;
-                                *raw_image = (_image.texture_id(frame), _image.size)
-                            } else {
-                                *label_info = "Unable to read image content.".to_string()
+                                network_image_loader[i] = None
                             }
-
-                            *network_image_loader = None
-                        }
-                        Progress::Canceled => {
-                            // restore counter to default
-                            *counter = 0;
-
-                            *label_info = "Loading image canceled!".to_string()
-                        }
-                        Progress::Error(err_name) => {
-                            // and restore counter to default here also.
-                            *counter = 0;
-
-                            *label_info = err_name
+                            Progress::Canceled => {
+                                // restore counter to default
+                                counter[i] = 0;
+                                label_info[i] = "Loading image canceled!".to_string();
+                                cancel_image[i] = false
+                            }
+                            Progress::Error(err_name) => {
+                                // and restore counter to default here also.
+                                counter[i] = 0;
+                                label_info[i] = err_name;
+                            }
                         }
                     }
                 }
             }
 
-            // Original image size
-            // let size: (f32, f32) = raw_image.1;
-            //
-            // just resize here for smaller image, 0.66x actual size
-            let size: (f32, f32) = (raw_image.1 .0 / 1.5, raw_image.1 .1 / 1.5);
+            ui.vertical(|ui| {
+                for i in 0..*total_image as usize {
+                    ui.separator();
+                    let label = Label::new(&*label_info[i].clone());
+                    ui.add(label);
+                    // Original image size
+                    // let size: (f32, f32) = raw_image.1;
+                    //
+                    // just resize here for smaller image, 0.66x actual size
+                    let size: (f32, f32) = (raw_image[i].1 .0 / 4.0, raw_image[i].1 .1 / 4.0);
+                    ui.horizontal(|ui| {
+                        let clickable_image = ui
+                            .image(raw_image[i].0, size)
+                            .interact(Sense::click())
+                            .on_hover_cursor(egui::CursorIcon::PointingHand)
+                            .on_hover_text("Image is clickable!, click to save the image.");
 
-            ui.horizontal(|ui| {
-                let clickable_image = ui
-                    .image(raw_image.0, size)
-                    .interact(Sense::click())
-                    .on_hover_cursor(egui::CursorIcon::PointingHand)
-                    .on_hover_text("Image is clickable!, click to save the image.");
+                        if clickable_image.clicked() {
+                            // prevent changing if the other task_network_image_loader is still running and if image save info is still showing
+                            if !image_clicked[i] && !label_info[i].contains("Loading...") {
+                                image_saved_info[i] = save_image(&image_content[i], &image_url[i]);
+                                image_clicked[i] = true
+                            }
+                        }
 
-                if clickable_image.clicked() {
-                    // prevent changing if the other task_network_image_loader is still running and if image save info is still showing
-                    if !*image_clicked && !label_info.contains("Loading...") {
-                        *image_saved_info =
-                            save_image(image_content.clone().to_vec(), image_url.clone());
-                        *image_clicked = true
-                    }
-                }
+                        if clickable_image.hovered() {
+                            if image_clicked[i] {
+                                ui.label(image_saved_info[i].clone());
+                                image_counter[i] += 1;
+                                // show image save info until:
+                                if image_counter[i] > 50 {
+                                    image_counter[i] = 0;
+                                    image_clicked[i] = false
+                                }
+                            }
+                        }
+                    });
 
-                if clickable_image.hovered() {
-                    if *image_clicked {
-                        ui.label(image_saved_info.clone());
-                        *image_counter += 1;
-                        // show image save info until:
-                        if *image_counter > 50 {
-                            *image_counter = 0;
-                            *image_clicked = false
+                    if counter[i] > 0 {
+                        if ui.button("cancel?").clicked() {
+                            cancel_image[i] = true
                         }
                     }
                 }

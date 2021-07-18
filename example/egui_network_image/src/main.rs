@@ -22,8 +22,7 @@ fn network_image(url: String) -> Futurize<(Vec<u8>, NetworkImageInfo), String> {
     let task = Futurize::task(
         0,
         move |_canceled| -> Progress<(Vec<u8>, NetworkImageInfo), String> {
-            let req = ureq::get(&url);
-            let res = if let Ok(res) = req.clone().call() {
+            let res = if let Ok(res) = ureq::get(&url).call() {
                 res
             } else {
                 return Progress::Error("Network problem, unable to request url.".to_string());
@@ -214,7 +213,7 @@ impl epi::App for MyApp {
                 }
             }
 
-            //// original image size
+            // Original image size
             // let size: (f32, f32) = raw_image.1;
             //
             // just resize here for smaller image, 0.66x actual size

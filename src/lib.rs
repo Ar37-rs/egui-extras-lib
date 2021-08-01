@@ -1,5 +1,5 @@
 pub use asynchron;
-use asynchron::Futurize;
+use asynchron::{Futurized};
 use egui::{Color32, TextureId};
 use epi;
 
@@ -7,8 +7,8 @@ extern "Rust" {
     fn _image_from_bytes(bytes: &[u8]) -> Option<Image>;
     fn _svg_from_bytes(bytes: &[u8]) -> Option<Image>;
     fn _tex_id_from_image(image: &Image, frame: &mut epi::Frame<'_>) -> TextureId;
-    fn _load_image(path: String) -> Futurize<Image, String>;
-    fn _load_svg(path: String) -> Futurize<Image, String>;
+    fn _load_image(path: String) -> Futurized<(),Image, String>;
+    fn _load_svg(path: String) -> Futurized<(),Image, String>;
 }
 
 /// Example available on repository: https://github.com/Ar37-rs/egui-extras-lib
@@ -26,6 +26,13 @@ impl Image {
         }
     }
 
+    /// if task id == 0 it means loading image (png, jpg, gif .etc)
+    ///
+    /// else if task_id == 1 loading svg image
+    pub fn type_id(t: usize) -> usize {
+        t
+    }
+
     /// New image form bytes of SVG v1.1 file specification which fully supported by usvg crate.
     pub fn new_from_svg(bytes: &[u8]) -> Option<Image> {
         unsafe {
@@ -33,6 +40,7 @@ impl Image {
         }
     }
 
+    /// Image texture id.
     pub fn texture_id(&self, frame: &mut epi::Frame<'_>) -> TextureId {
         unsafe {
             _tex_id_from_image(self, frame)
@@ -40,14 +48,14 @@ impl Image {
     }
 
     /// Image loader (.png, .gif, .jpg and .etc ) on top of image crate.
-    pub fn load_image(path: String) -> Futurize<Image, String> {
+    pub fn load_image(path: String) -> Futurized<(),Image, String> {
         unsafe {
             _load_image(path)
         }
     }
 
     /// SVG loader usvg, resvg, tiny-skia and image crates under the hood.
-    pub fn load_svg(path: String) -> Futurize<Image, String> {
+    pub fn load_svg(path: String) -> Futurized<(),Image, String> {
         unsafe {
             _load_svg(path)
         }

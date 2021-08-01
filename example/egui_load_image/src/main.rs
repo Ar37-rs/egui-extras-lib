@@ -3,7 +3,7 @@ use eframe::{
     epi,
 };
 use egui_extras_lib::{
-    asynchron::{Futurize, Progress},
+    asynchron::{Futurized, Progress},
     Image,
 };
 
@@ -12,7 +12,7 @@ struct MyApp {
     age: u32,
     counter: u32,
     raw_image: (TextureId, (f32, f32)),
-    image_loader: Option<Futurize<Image, String>>,
+    image_loader: Option<Futurized<(), Image, String>>,
     image_clicked: bool,
     btn2_label: String,
 }
@@ -31,6 +31,8 @@ impl Default for MyApp {
     }
 }
 
+const SVG: usize = 1;
+
 impl epi::App for MyApp {
     fn name(&self) -> &str {
         "My egui App"
@@ -48,7 +50,7 @@ impl epi::App for MyApp {
         } = self;
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("My egui Application Ok()");
+            ui.heading("Egui image loader quick demo");
             ui.vertical(|ui| {
                 ui.separator();
                 // ui.label(format!("counter: {}", counter.to_string()));
@@ -59,61 +61,72 @@ impl epi::App for MyApp {
             ui.horizontal(|ui| {
                 let btn = ui.button("Change image").on_hover_text("if age is odd image will be changed to fractal.png\nelse if age is even image will be back to cargo-crew.png");
                 if btn.clicked() {
-                    // prevent changing if the other task_image_loader is still running
-                    if !btn2_label.contains("Loading") {
-                        *age += 1;
-                        if *age % 2 == 0 {
-                            *image_loader = Some(Image::load_image("images/cargo-crew.png".to_string()))
-                        } else {
-                            *image_loader = Some(Image::load_image("images/fractal.png".to_string()))
-                        }
+                    // To terminate the task set to 'None'
+                    *image_loader = None;
+                    if btn2_label.contains("Loading") {
+                        *btn2_label = "Load SVG".to_string();
+                        *counter = 0
+                    }
+                    
+                    *age += 1;
+                    let _age = *age;
+
+                    if _age % 2 == 0 {
+                        *image_loader = Some(Image::load_image("images/cargo-crew.png".to_string()))
+                    } else {
+                        *image_loader = Some(Image::load_image("images/fractal.png".to_string()))
                     }
                 }
 
                 let btn2 = ui.button(&btn2_label).on_hover_text("try load SVG, if age is odd heart.svg file will be loaded (sometimes it takes a few milliseconds to complete, depending on the size and complexity of the SVG file)");
                 if btn2.clicked() {
-                    if !btn2_label.contains("Loading") {
-                        *age += 1;
-                        if *age % 2 == 0 {
-                            *image_loader = Some(Image::load_svg("images/tiger.svg".to_string()))
-                        } else {
-                            *image_loader = Some(Image::load_svg("images/heart.svg".to_string()))
-                        }
+                    *image_loader = None;
+                    if btn2_label.contains("Loading") {
+                        *btn2_label = "Load SVG".to_string();
+                        *counter = 0
                     }
-                }
 
-                if let Some(task_image_loader) = image_loader {
-                    if task_image_loader.is_in_progress() {
-                        match task_image_loader.try_get() {
-                            Progress::Current => {
-                                // if task id == 0 it means loading image (png, jpg, gif .etc) else if task_id == 1 loading svg image
-                                if task_image_loader.task_id() == 1 {
-                                    *counter += 1; 
-                                    *btn2_label = format!("Loading... {}", counter)
-                                }
-                            }
-                            Progress::Completed(_image) => {
-                                // restore some states to default
-                                if task_image_loader.task_id() == 1 {
-                                    *counter = 0;
-                                    *btn2_label = "Load SVG".to_string()
-                                }
-                                frame.tex_allocator().free(raw_image.0);
-                                *raw_image = (_image.texture_id(frame), _image.size);
-                                *image_loader = None;
-                            }
-                            Progress::Error(_image_path) => {
-                                if task_image_loader.task_id() == 1 {
-                                    *counter = 0;
-                                    *btn2_label = "Load SVG".to_string()
-                                }
-                                println!("unable to load {}", _image_path);
-                            }
-                            _ => (),
-                        }
+                    *age += 1;
+                    let _age = *age;
+
+                    if _age % 2 == 0 {
+                        *image_loader = Some(Image::load_svg("images/tiger.svg".to_string()))
+                    } else {
+                        *image_loader = Some(Image::load_svg("images/heart.svg".to_string()))
                     }
                 }
             });
+
+            if let Some(task_image_loader) = image_loader {
+                if task_image_loader.is_in_progress() {
+                    match task_image_loader.try_get() {
+                        Progress::Current(_) => {
+                            if task_image_loader.id() == Image::type_id(SVG) {
+                                *counter += 1;
+                                *btn2_label = format!("Loading... {}", counter)
+                            }
+                        }
+                        Progress::Completed(_image) => {
+                            frame.tex_allocator().free(raw_image.0);
+                            *raw_image = (_image.texture_id(frame), _image.size)
+                        }
+                        Progress::Error(_image_path) => {
+                            println!("unable to load {}", _image_path)
+                        }
+                        _ => (),
+                    }
+
+                    // restore some states to default
+                    if task_image_loader.is_done() {
+                        if task_image_loader.id() == Image::type_id(SVG) {
+                            *counter = 0;
+                            *btn2_label = "Load SVG".to_string()
+                        }
+                        *image_loader = None
+                    }
+                }
+            }
+            
 
             ui.label(format!("Hello '{}', age {}", name, age));
 

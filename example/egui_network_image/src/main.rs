@@ -180,7 +180,7 @@ impl epi::App for MyApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Egui network image quick demo");
             ui.separator();
-            ui.add(egui::Slider::new(total_image, 0..=12).text("images"));
+            ui.add(egui::Slider::new(total_image, 0..=12).clamp_to_range(true).text("images"));
             ui.horizontal(|ui| {
                 if ui.button("prev image").clicked() {
                     *next -= *total_image as i32;

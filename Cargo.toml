@@ -1,6 +1,6 @@
 [package]
 name = "egui_extras_lib"
-version = "0.13.4"
+version = "0.13.5"
 authors = ["Ar37-rs <adyaro37@gmail.com>"]
 edition = "2018"
 description = "Several extras for egui"

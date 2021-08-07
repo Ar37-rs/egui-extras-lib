@@ -234,9 +234,8 @@ impl epi::App for MyApp {
                             } else {
                                 network_image_loader[i] = Some(task)
                             }
-
-                            *total_current_tasks = current_total_image as u32
                         }
+                        *total_current_tasks = current_total_image as u32
                     }
                 }
 

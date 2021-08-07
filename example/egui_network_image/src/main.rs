@@ -19,7 +19,7 @@ struct NetworkImageInfo {
 }
 
 fn network_image(url: String) -> Futurized<(), (Vec<u8>, NetworkImageInfo), String> {
-    let task = Futurize::task(
+    Futurize::task(
         0,
         move |_task: InnerTaskHandle| -> Progress<(), (Vec<u8>, NetworkImageInfo), String> {
             let res = if let Ok(res) = ureq::get(&url).call() {
@@ -57,9 +57,7 @@ fn network_image(url: String) -> Futurized<(), (Vec<u8>, NetworkImageInfo), Stri
                 Progress::Error(format!("Network error, status: {}", res.status()))
             }
         },
-    );
-    // task.try_do();
-    task
+    )
 }
 
 fn save_image(image_content: &[u8], image_url: &str) -> String {

@@ -58,7 +58,7 @@ fn network_image(url: String) -> Futurized<(), (Vec<u8>, NetworkImageInfo), Stri
             }
         },
     );
-    task.try_do();
+    // task.try_do();
     task
 }
 
@@ -180,7 +180,11 @@ impl epi::App for MyApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.heading("Egui network image quick demo");
             ui.separator();
-            ui.add(egui::Slider::new(total_image, 0..=12).clamp_to_range(true).text("images"));
+            ui.add(
+                egui::Slider::new(total_image, 0..=12)
+                    .clamp_to_range(true)
+                    .text("images"),
+            );
             ui.horizontal(|ui| {
                 if ui.button("prev image").clicked() {
                     *next -= *total_image as i32;
@@ -199,40 +203,41 @@ impl epi::App for MyApp {
                     let width = 640;
                     let height = 480;
 
-                    for i in 0..current_total_image {
-                        seed[i] = ((*next as i32) + (i as i32)) + 1;
-                        if *next >= *total_image as i32 {
-                            let url = format!(
-                                "https://picsum.photos/seed/{}/{}/{}",
-                                seed[i], width, height
-                            );
-
-                            if task_len < current_total_image {
-                                network_image_loader.push(Some(network_image(url)))
-                            } else {
-                                network_image_loader[i] = Some(network_image(url))
-                            }
-
-                            *total_current_tasks = current_total_image as u32
-                        } else if *next == 0 {
-                            let url = format!(
-                                "https://picsum.photos/seed/{}/{}/{}",
-                                i + 1,
-                                width,
-                                height
-                            );
-
-                            if task_len < current_total_image {
-                                network_image_loader.push(Some(network_image(url)))
-                            } else {
-                                network_image_loader[i] = Some(network_image(url))
-                            }
-
-                            *total_current_tasks = current_total_image as u32
-                        } else {
+                    if *next < 0 {
+                        for i in 0..current_total_image {
                             label_info[i] =
-                                "index out of bound, try click 'next image' button.".into();
-                            *total_current_tasks = 0
+                                "index out of bound, try click 'next image' button.".into()
+                        }
+                        *total_current_tasks = 0
+                    } else {
+                        for i in 0..current_total_image {
+                            seed[i] = ((*next as i32) + (i as i32)) + 1;
+                            let url = if *next >= *total_image as i32 {
+                                let url = format!(
+                                    "https://picsum.photos/seed/{}/{}/{}",
+                                    seed[i], width, height
+                                );
+                                url
+                            } else {
+                                let url = format!(
+                                    "https://picsum.photos/seed/{}/{}/{}",
+                                    i + 1,
+                                    width,
+                                    height
+                                );
+                                url
+                            };
+
+                            let task = network_image(url);
+                            task.try_do();
+
+                            if task_len < current_total_image {
+                                network_image_loader.push(Some(task))
+                            } else {
+                                network_image_loader[i] = Some(task)
+                            }
+
+                            *total_current_tasks = current_total_image as u32
                         }
                     }
                 }
@@ -266,22 +271,25 @@ impl epi::App for MyApp {
                             seed[i], width, height
                         );
 
+                        let task = network_image(url);
+                        task.try_do();
+
                         if task_len < current_total_image {
-                            network_image_loader.push(Some(network_image(url)))
+                            network_image_loader.push(Some(task))
                         } else {
-                            network_image_loader[i] = Some(network_image(url))
+                            network_image_loader[i] = Some(task)
                         }
                     }
                     *total_current_tasks = current_total_image as u32
                 }
             });
 
-            // Don't iterate if total_tasks < 0 task (to reduce resource usage);
+            // Don't iterate if total_tasks == 0 (to reduce resource usage);
             if *total_current_tasks > 0 {
                 for i in 0..network_image_loader.len() {
                     if let Some(task) = &network_image_loader[i] {
-                        if task.is_in_progress() {
-                            match task.try_get() {
+                        task.try_resolve(|progress, _| {
+                            match progress {
                                 Progress::Current(_) => {
                                     counter[i] += 1;
                                     label_info[i] = format!("Loading... {}\n", counter[i]);
@@ -311,13 +319,13 @@ impl epi::App for MyApp {
                                 }
                                 Progress::Error(err_name) => label_info[i] = err_name,
                             }
+                        });
 
-                            // Restore some states to default
-                            if task.is_done() {
-                                network_image_loader[i] = None;
-                                counter[i] = 0;
-                                *total_current_tasks -= 1
-                            }
+                        // Restore some states to default
+                        if task.is_done() {
+                            network_image_loader[i] = None;
+                            counter[i] = 0;
+                            *total_current_tasks -= 1
                         }
                     }
                 }
@@ -357,7 +365,7 @@ impl epi::App for MyApp {
                                     ui.label(image_saved_info[i].clone());
                                     image_counter[i] += 1;
                                     // show image save info until:
-                                    if image_counter[i] > 50 {
+                                    if image_counter[i] > 20 {
                                         image_counter[i] = 0;
                                         image_clicked[i] = false
                                     }

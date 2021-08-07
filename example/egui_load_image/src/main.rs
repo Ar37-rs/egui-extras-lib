@@ -98,32 +98,30 @@ impl epi::App for MyApp {
             });
 
             if let Some(task_image_loader) = image_loader {
-                if task_image_loader.is_in_progress() {
-                    match task_image_loader.try_get() {
-                        Progress::Current(_) => {
-                            if task_image_loader.id() == Image::type_id(SVG) {
+                task_image_loader.try_resolve(|progress, _| match progress {
+                    Progress::Current(_) => {
+                        if task_image_loader.id() == Image::type_id(SVG) {
                                 *counter += 1;
                                 *btn2_label = format!("Loading... {}", counter)
                             }
-                        }
-                        Progress::Completed(_image) => {
-                            frame.tex_allocator().free(raw_image.0);
-                            *raw_image = (_image.texture_id(frame), _image.size)
-                        }
-                        Progress::Error(_image_path) => {
-                            println!("unable to load {}", _image_path)
-                        }
-                        _ => (),
                     }
+                    Progress::Completed(_image) => {
+                        frame.tex_allocator().free(raw_image.0);
+                        *raw_image = (_image.texture_id(frame), _image.size)
+                    }
+                    Progress::Error(_image_path) => {
+                        println!("unable to load {}", _image_path)
+                    }
+                    _ => (),
+                });
 
-                    // restore some states to default
-                    if task_image_loader.is_done() {
-                        if task_image_loader.id() == Image::type_id(SVG) {
-                            *counter = 0;
-                            *btn2_label = "Load SVG".to_string()
-                        }
-                        *image_loader = None
+                // restore some states to default
+                if task_image_loader.is_done() {
+                    if task_image_loader.id() == Image::type_id(SVG) {
+                        *counter = 0;
+                        *btn2_label = "Load SVG".to_string()
                     }
+                    *image_loader = None
                 }
             }
             

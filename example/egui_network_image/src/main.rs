@@ -211,19 +211,17 @@ impl epi::App for MyApp {
                         for i in 0..current_total_image {
                             seed[i] = ((*next as i32) + (i as i32)) + 1;
                             let url = if *next >= *total_image as i32 {
-                                let url = format!(
+                                format!(
                                     "https://picsum.photos/seed/{}/{}/{}",
                                     seed[i], width, height
-                                );
-                                url
+                                )
                             } else {
-                                let url = format!(
+                                format!(
                                     "https://picsum.photos/seed/{}/{}/{}",
                                     i + 1,
                                     width,
                                     height
-                                );
-                                url
+                                )
                             };
 
                             let task = network_image(url);

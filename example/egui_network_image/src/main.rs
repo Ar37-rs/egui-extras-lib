@@ -283,37 +283,35 @@ impl epi::App for MyApp {
             if *total_current_tasks > 0 {
                 for i in 0..network_image_loader.len() {
                     if let Some(task) = &network_image_loader[i] {
-                        task.try_resolve(|progress, _| {
-                            match progress {
-                                Progress::Current(_) => {
-                                    counter[i] += 1;
-                                    label_info[i] = format!("Loading... {}\n", counter[i]);
-                                    if cancel_image[i] {
-                                        task.cancel()
-                                    }
-                                    // reqwest redraw to the context
-                                    ctx.request_repaint()
+                        task.try_resolve(|progress, _| match progress {
+                            Progress::Current(_) => {
+                                counter[i] += 1;
+                                label_info[i] = format!("Loading... {}\n", counter[i]);
+                                if cancel_image[i] {
+                                    task.cancel()
                                 }
-                                Progress::Completed((bytes, image_info)) => {
-                                    if let Some(_image) = Image::new(&bytes) {
-                                        label_info[i] = format!(
-                                            "URL: {}\nContent-type: {}",
-                                            image_info.url, image_info.content_type
-                                        );
-                                        image_url[i] = image_info.url;
-                                        frame.tex_allocator().free(raw_image[i].0);
-                                        image_content[i] = bytes;
-                                        raw_image[i] = (_image.texture_id(frame), _image.size)
-                                    } else {
-                                        label_info[i] = "Unable to read image content.".to_string()
-                                    }
-                                }
-                                Progress::Canceled => {
-                                    label_info[i] = "Loading image canceled!".to_string();
-                                    cancel_image[i] = false
-                                }
-                                Progress::Error(err_name) => label_info[i] = err_name,
+                                // reqwest redraw to the context
+                                ctx.request_repaint()
                             }
+                            Progress::Completed((bytes, image_info)) => {
+                                if let Some(_image) = Image::new(&bytes) {
+                                    label_info[i] = format!(
+                                        "URL: {}\nContent-type: {}",
+                                        image_info.url, image_info.content_type
+                                    );
+                                    image_url[i] = image_info.url;
+                                    frame.tex_allocator().free(raw_image[i].0);
+                                    image_content[i] = bytes;
+                                    raw_image[i] = (_image.texture_id(frame), _image.size)
+                                } else {
+                                    label_info[i] = "Unable to read image content.".to_string()
+                                }
+                            }
+                            Progress::Canceled => {
+                                label_info[i] = "Loading image canceled!".to_string();
+                                cancel_image[i] = false
+                            }
+                            Progress::Error(err_name) => label_info[i] = err_name,
                         });
 
                         // Restore some states to default

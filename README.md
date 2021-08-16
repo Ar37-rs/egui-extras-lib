@@ -4,6 +4,9 @@
 [![Egui_extras_lib documentation](https://docs.rs/egui_extras_lib/badge.svg)](https://docs.rs/egui_extras_lib)
 
 0.13.7: Remove linux support due to various egui_glium issues, see: https://github.com/emilk/egui/issues/446
+<br />
 currently work on windows (MSVC/GNU) x86 and x86_64 only.
+<br />
 (the naitve libs are statically linked for both x86 and x86_64, so don't have to worry about vcruntime140_*.dll)
+<br />
 click [here](https://github.com/Ar37-rs/egui-extras-lib/tree/main/example) for examples.

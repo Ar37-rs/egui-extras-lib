@@ -18,17 +18,17 @@ struct NetworkImageInfo {
     content_type: String,
 }
 
-fn network_image(url: String) -> Futurized<(), (Vec<u8>, NetworkImageInfo), String> {
+fn network_image(url: String) -> Futurized<(), (Vec<u8>, NetworkImageInfo)> {
     Futurize::task(
         0,
-        move |_task: InnerTaskHandle| -> Progress<(), (Vec<u8>, NetworkImageInfo), String> {
+        move |_task: InnerTaskHandle| -> Progress<(), (Vec<u8>, NetworkImageInfo)> {
             let res = if let Ok(res) = ureq::get(&url).call() {
                 res
             } else {
                 return Progress::Error(format!(
                     "Network problem, unable to request url: {}",
                     &url
-                ));
+                ).into());
             };
 
             // check if progress is canceled
@@ -44,7 +44,7 @@ fn network_image(url: String) -> Futurized<(), (Vec<u8>, NetworkImageInfo), Stri
 
                 let mut buf = Vec::new();
                 if let Err(_) = res.into_reader().read_to_end(&mut buf) {
-                    return Progress::Error("Unable read image content".to_string());
+                    return Progress::Error("Unable read image content".to_string().into());
                 };
 
                 // and check here also.
@@ -54,7 +54,7 @@ fn network_image(url: String) -> Futurized<(), (Vec<u8>, NetworkImageInfo), Stri
                     Progress::Completed((buf, img_info))
                 }
             } else {
-                Progress::Error(format!("Network error, status: {}", res.status()))
+                Progress::Error(format!("Network error, status: {}", res.status()).into())
             }
         },
     )
@@ -94,7 +94,7 @@ struct MyApp {
     counter: Vec<u32>,
     image_content: Vec<Vec<u8>>,
     raw_image: Vec<(TextureId, (f32, f32))>,
-    network_image_loader: Vec<Option<Futurized<(), (Vec<u8>, NetworkImageInfo), String>>>,
+    network_image_loader: Vec<Option<Futurized<(), (Vec<u8>, NetworkImageInfo)>>>,
     image_clicked: Vec<bool>,
     image_saved_info: Vec<String>,
     image_counter: Vec<u32>,
@@ -311,7 +311,7 @@ impl epi::App for MyApp {
                                 label_info[i] = "Loading image canceled!".to_string();
                                 cancel_image[i] = false
                             }
-                            Progress::Error(err_name) => label_info[i] = err_name,
+                            Progress::Error(err_name) => label_info[i] = err_name.into(),
                         });
 
                         // Restore some states to default

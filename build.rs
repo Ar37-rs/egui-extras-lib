@@ -13,20 +13,18 @@ fn main() {
         "x86_64" => {
             if os == "windows" {
                 "win-x64"
-            } else if os == "linux" {
-                "linux-x64"
             } else {
-                panic!("Unsupported os, currently linux x86_64 and windows arch x86, x86_64 only")
+                panic!("Unsupported os, currently windows arch x86, x86_64 only")
             }
         }
         "x86" => {
             if os == "windows" {
                 "win-x86"
             } else {
-                panic!("Unsupported os, currently linux x86_64 and windows arch x86, x86_64 only")
+                panic!("Unsupported os, currently windows arch x86, x86_64 only")
             }
         }
-        _ => panic!("Unsupported target, currently linux x86_64 and windows arch x86, x86_64 only")
+        _ => panic!("Unsupported target, currently windows arch x86, x86_64 only")
     };
 
     manifest_dir.push(arch);
@@ -50,16 +48,7 @@ fn main() {
                 println!("cargo:rustc-link-lib=egui_extras.dll")
             }
         }
-    } else if os == "linux" {
-        cfg_if! {
-            if #[cfg(feature = "staticlib")] {
-                 panic!("staticlib feature currently unsupported due to rust-lld: error: duplicate symbol: rust_eh_personality issue on release mode");
-            } else {
-                exe_pth.push("../../../libegui_extras.so");
-                std::fs::copy(format!("{}/libegui_extras.so", lib_dir.display()), exe_pth.to_str().unwrap()).unwrap();
-                println!("cargo:rustc-link-lib=dylib=egui_extras")            }
-        }
     } else {
-        panic!("Unsupported target, currently linux x86_64 and windows arch x86, x86_64 only")
+        panic!("Unsupported target, currently windows arch x86, x86_64 only")
     }
 }

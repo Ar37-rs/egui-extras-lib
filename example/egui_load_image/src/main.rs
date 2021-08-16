@@ -12,7 +12,7 @@ struct MyApp {
     age: u32,
     counter: u32,
     raw_image: (TextureId, (f32, f32)),
-    image_loader: Option<Futurized<(), Image, String>>,
+    image_loader: Option<Futurized<(), Image>>,
     image_clicked: bool,
     btn2_label: String,
 }
